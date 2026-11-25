@@ -86,6 +86,13 @@
   .avatar::before,.avatar::after{content:"";position:absolute;width:22px;height:22px;border:2px solid #fff}
   .avatar::before{top:-6px;left:-6px;border-right:0;border-bottom:0}
   .avatar::after{bottom:-6px;right:-6px;border-left:0;border-top:0}
+  /* foto: linha de scan */
+  .scan{position:absolute;left:0;right:0;top:0;height:2px;background:#fff;box-shadow:0 0 16px 3px rgba(255,255,255,.55);opacity:0;pointer-events:none}
+  .js .avatar.reveal img{clip-path:inset(0 0 100% 0)}
+  .js .avatar.reveal.in img{animation:scanReveal 1.8s cubic-bezier(.55,0,.35,1) .35s both}
+  .js .avatar.reveal.in .scan{animation:scanMove 1.8s cubic-bezier(.55,0,.35,1) .35s both}
+  @keyframes scanReveal{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
+  @keyframes scanMove{0%{top:0;opacity:1}92%{opacity:1}100%{top:calc(100% - 2px);opacity:0}}
   .about-text p{font-size:22px;font-weight:300;line-height:1.55;color:#e6e6e6}
   .about-text p strong{font-weight:700;color:#fff}
   .stats{display:inline-grid;grid-template-columns:1fr;min-width:240px;margin-top:48px;border:1px solid #222}
@@ -95,7 +102,15 @@
   .stat small{font-family:var(--mono);font-size:12px;color:var(--muted)}
 
   /* EXPERIENCE */
-  .xp{border-left:1px solid #2a2a2a;margin-left:6px}
+  .xp{border-left:1px solid #2a2a2a;margin-left:6px;position:relative}
+  /* linha do tempo a desenhar-se */
+  .js .xp.draw{border-left-color:transparent}
+  .js .xp.draw::before,.js .xp.draw::after{content:"";position:absolute;left:-1px;top:0;bottom:0;width:1px;background:#2a2a2a}
+  .js .xp.draw::after{background:#fff;box-shadow:0 0 8px rgba(255,255,255,.5);transform-origin:top;transform:scaleY(var(--p,0))}
+  .js .xp.draw .job::before{border-color:#3a3a3a;transition:border-color .4s,background .4s,box-shadow .4s;z-index:1}
+  .js .xp.draw .job.lit::before{border-color:#fff;box-shadow:0 0 12px rgba(255,255,255,.6)}
+  .js .xp.draw .job.now::before{background:#000;box-shadow:none}
+  .js .xp.draw .job.now.lit::before{background:#fff;box-shadow:0 0 14px #fff}
   .job{display:grid;grid-template-columns:170px 1fr;gap:40px;padding:0 0 54px 36px;position:relative}
   .job::before{content:"";position:absolute;left:-6px;top:6px;width:11px;height:11px;background:#000;border:1px solid #fff}
   .job.now::before{background:#fff;box-shadow:0 0 14px #fff}
@@ -208,7 +223,7 @@
   <section id="about">
     <div class="sec-head"><span class="num">01.</span><h2>about</h2></div>
     <div class="about">
-      <div class="avatar"><img src="assets/foto.jpg" alt="André Carvalho"></div>
+      <div class="avatar"><img src="assets/foto.jpg" alt="André Carvalho"><span class="scan"></span></div>
       <div class="about-text">
         <p>I'm an <strong>IT Support &amp; Systems Specialist</strong> with over 10 years of experience in IT support, field services and IT infrastructure. Skilled in <strong>Microsoft 365</strong>, <strong>Windows administration</strong>, hardware and software troubleshooting. Passionate about solving technical challenges and continuously expanding my expertise.</p>
         <div class="stats">
@@ -330,8 +345,41 @@
   root.classList.add('js');
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* Cargo escrito letra a letra; o terminal começa a seguir */
+  var role = document.querySelector('.role');
+  function typeRole(done) {
+    if (!role || reduce) return done();
+    var tn = role.firstChild, full = tn.textContent, r = 0;
+    role.setAttribute('aria-label', full);
+    tn.textContent = '';
+    (function step() {
+      if (r <= full.length) { tn.textContent = full.slice(0, r++); setTimeout(step, 35 + Math.random() * 45); }
+      else setTimeout(done, 300);
+    })();
+  }
+
+  /* Linha do tempo: desenha-se com o scroll e acende cada marcador */
+  var xp = document.querySelector('.xp');
+  if (xp && !reduce) {
+    xp.classList.add('draw');
+    var jobs = xp.querySelectorAll('.job'), ticking = false;
+    function drawLine() {
+      ticking = false;
+      var r = xp.getBoundingClientRect();
+      var p = (window.innerHeight * 0.65 - r.top) / r.height;
+      p = Math.max(0, Math.min(1, p));
+      xp.style.setProperty('--p', p);
+      var reach = p * r.height;
+      jobs.forEach(function (j) { j.classList.toggle('lit', j.offsetTop + 8 <= reach); });
+    }
+    window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(drawLine); } }, { passive: true });
+    window.addEventListener('resize', drawLine);
+    drawLine();
+  }
+
   /* 1. PowerShell: escrever o comando e mostrar o resultado linha a linha */
   var pre = document.getElementById('ps');
+  if (!pre || reduce) typeRole(function () {});
   if (pre && !reduce) {
     var lines = pre.innerHTML.split('\n');
     var first = lines[0];
@@ -361,7 +409,7 @@
         setTimeout(next, 70);
       })();
     }
-    setTimeout(type, 700);
+    setTimeout(function () { typeRole(type); }, 400);
   }
 
   /* 8. Entrada suave das secções ao fazer scroll */
